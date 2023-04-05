@@ -1,0 +1,36 @@
+{{- $ca := genCA "k8s-sidecar-injector-ca" 365 -}}
+{{- $cn := list ( printf "%s.%s" (include "k8s-sidecar-injector.fullname" .) .Release.Namespace ) ( printf "%s.%s.svc" (include "k8s-sidecar-injector.fullname" .) .Release.Namespace ) -}}
+{{- $cert := genSignedCert (include "k8s-sidecar-injector.fullname" .) nil $cn 365 $ca -}}
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "k8s-sidecar-injector.fullname" . }}
+  labels:
+    {{- include "k8s-sidecar-injector.labels" . | nindent 4 }}
+webhooks:
+  - name: "injector.tumblr.com"
+    sideEffects: None
+    admissionReviewVersions: ["v1", "v1beta1"]
+    failurePolicy: "Ignore"
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    clientConfig:
+      caBundle: {{ b64enc $ca.Cert }}
+      service:
+        name: {{ include "k8s-sidecar-injector.fullname" . }}
+        namespace: {{ .Release.Namespace }}
+        path: "/mutate"
+---
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/tls
+metadata:
+  name: {{ include "k8s-sidecar-injector.fullname" . }}-tls
+  labels:
+    {{- include "k8s-sidecar-injector.labels" . | nindent 4 }}
+data:
+  tls.crt: {{ b64enc $cert.Cert }}
+  tls.key: {{ b64enc $cert.Key }}
