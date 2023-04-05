@@ -8,7 +8,7 @@ VERSION ?= $(shell git describe --tags --always --dirty --match=v* 2> /dev/null 
 BIN      = $(GOPATH)/bin
 PKGS     = $(or $(PKG),$(shell $(GO) list ./... | grep -v "^$(PACKAGE)/vendor/"))
 TESTPKGS = $(shell env $(GO) list -f '{{ if or .TestGoFiles .XTestGoFiles }}{{ .ImportPath }}{{ end }}' $(PKGS))
-DOCKER_IMAGE_BASE = tumblr/k8s-sidecar-injector
+DOCKER_IMAGE_BASE = quay.io/zebbra/k8s-sidecar-injector
 DOCKER_TAG = $(VERSION)
 
 export CGO_ENABLED := 0
@@ -92,8 +92,8 @@ test-coverage: fmt lint vendor test-coverage-tools | ; $(info $(M) running cover
 
 .PHONY: docker
 docker: | ; $(info $(M) building docker container…)
-	docker build -t $(DOCKER_IMAGE_BASE):$(DOCKER_TAG) .
-	docker build -t $(DOCKER_IMAGE_BASE):latest .
+	docker buildx build --platform linux/amd64 -t $(DOCKER_IMAGE_BASE):$(DOCKER_TAG) .
+	docker buildx build --platform linux/amd64 -t $(DOCKER_IMAGE_BASE):latest .
 
 .PHONY: lint
 lint: vendor | $(GOLINT) ; $(info $(M) running golint…)
